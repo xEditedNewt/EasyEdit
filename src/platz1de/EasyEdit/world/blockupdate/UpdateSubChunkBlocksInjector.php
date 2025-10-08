@@ -2,11 +2,12 @@
 
 namespace platz1de\EasyEdit\world\blockupdate;
 
+use pmmp\encoding\ByteBufferReader;
+use pmmp\encoding\ByteBufferWriter;
 use pocketmine\network\mcpe\protocol\ClientboundPacket;
 use pocketmine\network\mcpe\protocol\DataPacket;
 use pocketmine\network\mcpe\protocol\PacketHandlerInterface;
 use pocketmine\network\mcpe\protocol\ProtocolInfo;
-use pocketmine\network\mcpe\protocol\serializer\PacketSerializer;
 use pocketmine\network\mcpe\protocol\UpdateSubChunkBlocksPacket;
 
 /**
@@ -30,24 +31,24 @@ class UpdateSubChunkBlocksInjector extends DataPacket implements ClientboundPack
 		return $result;
 	}
 
-	protected function decodePayload(PacketSerializer $in): void
+	protected function decodePayload(ByteBufferReader $in): void
 	{
 		$prev = $in->getOffset();
 		$mock = new UpdateSubChunkBlocksPacket();
 		$mock->decodePayload($in);
-		$this->rawData = substr($in->getBuffer(), $prev, $in->getOffset() - $prev);
+		$this->rawData = substr($in->getData(), $prev, $in->getOffset() - $prev);
 	}
 
-	protected function encodePayload(PacketSerializer $out): void
+	protected function encodePayload(ByteBufferWriter $out): void
 	{
-		$out->put($this->rawData);
+		$out->writeByteArray($this->rawData);
 	}
 
 	public function handle(PacketHandlerInterface $handler): bool
 	{
 		//Apparently some plugins just blindly handle packets sent to the network, so we need to emulate its behavior
 		$mock = new UpdateSubChunkBlocksPacket();
-		$mock->decodePayload(PacketSerializer::decoder($this->rawData, 0));
+		$mock->decodePayload(new ByteBufferReader($this->rawData));
 		return $mock->handle($handler);
 	}
 }
