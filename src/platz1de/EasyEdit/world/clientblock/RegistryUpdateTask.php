@@ -8,6 +8,6 @@ class RegistryUpdateTask extends AsyncTask
 {
 	public function onRun(): void
 	{
-		Registry::registerToNetwork();
+		Registry::registerSerializer();
 	}
 }

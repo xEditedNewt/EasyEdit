@@ -41,6 +41,23 @@ class Registry
 
 	public static function registerToNetwork(): void
 	{
+		self::registerSerializer();
+		/**
+		 * @var Block $block
+		 */
+		foreach (self::_registryGetAll() as $block) {
+			RuntimeBlockStateRegistry::getInstance()->register($block);
+		}
+	}
+
+	/**
+	 * Registers only the serializer mappings (thread-local).
+	 * Called from async workers to avoid re-registering block type IDs in the
+	 * shared RuntimeBlockStateRegistry, which conflicts with other plugins
+	 * that also allocate IDs via BlockTypeIds::newId() in their async tasks.
+	 */
+	public static function registerSerializer(): void
+	{
 		/**
 		 * @var Block $block
 		 */
@@ -61,8 +78,6 @@ class Registry
 						default => throw new BlockStateSerializeException("Invalid Structure Block mode $type"),
 					});
 			});
-
-			RuntimeBlockStateRegistry::getInstance()->register($block);
 		}
 	}
 }
