@@ -9,6 +9,7 @@ use platz1de\EasyEdit\thread\output\ResultingChunkData;
 use platz1de\EasyEdit\utils\TileUtils;
 use platz1de\EasyEdit\world\blockupdate\InjectingData;
 use platz1de\EasyEdit\world\blockupdate\InjectingSubChunkController;
+use pocketmine\network\mcpe\protocol\UpdateSubChunkBlocksPacket;
 use platz1de\EasyEdit\world\ChunkController;
 use platz1de\EasyEdit\world\ChunkInformation;
 use platz1de\EasyEdit\world\ReferencedChunkManager;
@@ -86,7 +87,7 @@ class EditTaskHandler
 
 	/**
 	 * @param int $chunk
-	 * @return string[]
+	 * @return UpdateSubChunkBlocksPacket[]
 	 */
 	public function prepareInjectionData(int $chunk): array
 	{
@@ -94,7 +95,7 @@ class EditTaskHandler
 			return [];
 		}
 		return array_map(static function (InjectingData $injection) {
-			return $injection->toProtocol();
+			return $injection->toPacket();
 		}, $this->result->getInjection($chunk));
 	}
 

@@ -10,6 +10,7 @@ use platz1de\EasyEdit\thread\chunk\ChunkRequest;
 use platz1de\EasyEdit\world\ChunkController;
 use platz1de\EasyEdit\world\ChunkInformation;
 use platz1de\EasyEdit\world\ReferencedChunkManager;
+use pocketmine\network\mcpe\protocol\UpdateSubChunkBlocksPacket;
 
 abstract class ThreadEnvironmentHandler
 {
@@ -19,7 +20,7 @@ abstract class ThreadEnvironmentHandler
 	 * @param string           $world
 	 * @param int              $index
 	 * @param ChunkInformation $chunk
-	 * @param string[]         $injections
+	 * @param UpdateSubChunkBlocksPacket[] $injections
 	 */
 	abstract public function submitSingleChunk(string $world, int $index, ChunkInformation $chunk, array $injections): void;
 

@@ -17,6 +17,7 @@ use platz1de\EasyEdit\world\ChunkController;
 use platz1de\EasyEdit\world\ChunkInformation;
 use platz1de\EasyEdit\world\HeightMapCache;
 use platz1de\EasyEdit\world\ReferencedChunkManager;
+use pocketmine\network\mcpe\protocol\UpdateSubChunkBlocksPacket;
 
 /**
  * The edit thread processes the tasks asynchronously
@@ -29,7 +30,7 @@ class EditThreadHandler extends ThreadEnvironmentHandler
 			$injections = [];
 		} else {
 			$injections = array_map(static function (InjectingData $injection) {
-				return $injection->toProtocol();
+				return $injection->toPacket();
 			}, $controller->getInjections());
 		}
 		$data = new ResultingChunkData($controller->getManager()->getWorldName(), $controller->getManager()->getModifiedChunks(), $injections);
@@ -42,7 +43,7 @@ class EditThreadHandler extends ThreadEnvironmentHandler
 	 * @param string           $world
 	 * @param int              $index
 	 * @param ChunkInformation $chunk
-	 * @param string[]         $injections
+	 * @param UpdateSubChunkBlocksPacket[] $injections
 	 */
 	public function submitSingleChunk(string $world, int $index, ChunkInformation $chunk, array $injections): void
 	{

@@ -3,41 +3,43 @@
 namespace platz1de\EasyEdit\world\blockupdate;
 
 use pocketmine\network\mcpe\convert\TypeConverter;
-use pocketmine\network\mcpe\protocol\serializer\PacketSerializer;
 use pocketmine\network\mcpe\protocol\types\BlockPosition;
-use pocketmine\utils\Binary;
+use pocketmine\network\mcpe\protocol\types\UpdateSubChunkBlocksPacketEntry;
+use pocketmine\network\mcpe\protocol\UpdateBlockPacket;
+use pocketmine\network\mcpe\protocol\UpdateSubChunkBlocksPacket;
 
 class InjectingData
 {
-	private PacketSerializer $injection;
-	private int $blockCount = 0;
+	/**
+	 * @var UpdateSubChunkBlocksPacketEntry[]
+	 */
+	private array $entries = [];
 	private BlockPosition $position;
 
 	public function __construct(int $x, int $y, int $z)
 	{
 		$this->position = new BlockPosition($x, $y, $z);
-		$this->injection = PacketSerializer::encoder();
 	}
 
 	public function writeBlock(int $x, int $y, int $z, int $id): void
 	{
-		$this->blockCount++;
-		$this->injection->putVarInt($x);
-		$this->injection->putUnsignedVarInt(Binary::unsignInt($y));
-		$this->injection->putVarInt($z);
-		$this->injection->putUnsignedVarInt(TypeConverter::getInstance()->getBlockTranslator()->internalIdToNetworkId($id));
-		$this->injection->putUnsignedVarInt(2); //network flag
-		$this->injection->putUnsignedVarLong(-1); //we don't have any actors
-		$this->injection->putUnsignedVarInt(0); //not synced
+		$this->entries[] = new UpdateSubChunkBlocksPacketEntry(
+			new BlockPosition($x, $y, $z),
+			TypeConverter::getInstance()->getBlockTranslator()->internalIdToNetworkId($id),
+			UpdateBlockPacket::FLAG_NETWORK,
+			0, //we don't have any actors
+			0 //not synced
+		);
 	}
 
-	public function toProtocol(): string
+	/**
+	 * This used to hand-encode the payload through PacketSerializer to avoid creating entry objects.
+	 * That class was removed from BedrockProtocol, and the wire format is not ours to guess, so the
+	 * real packet is built instead and the protocol library handles the encoding.
+	 * @return UpdateSubChunkBlocksPacket
+	 */
+	public function toPacket(): UpdateSubChunkBlocksPacket
 	{
-		$serializer = PacketSerializer::encoder();
-		$serializer->putBlockPosition($this->position);
-		$serializer->putUnsignedVarInt($this->blockCount);
-		$serializer->put($this->injection->getBuffer());
-		$serializer->putUnsignedVarInt(0); //we don't use the second layer
-		return $serializer->getBuffer();
+		return UpdateSubChunkBlocksPacket::create($this->position, $this->entries, []); //we don't use the second layer
 	}
 }

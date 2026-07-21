@@ -16,7 +16,8 @@ use platz1de\EasyEdit\world\ChunkInformation;
 use platz1de\EasyEdit\world\HeightMapCache;
 use platz1de\EasyEdit\world\ReferencedChunkManager;
 use pocketmine\block\tile\Tile;
-use pocketmine\network\mcpe\protocol\serializer\PacketSerializer;
+use pocketmine\network\mcpe\protocol\types\UpdateSubChunkBlocksPacketEntry;
+use pocketmine\network\mcpe\protocol\UpdateSubChunkBlocksPacket;
 use pocketmine\Server;
 use pocketmine\utils\AssumptionFailedError;
 use pocketmine\world\format\Chunk;
@@ -42,7 +43,7 @@ class MainThreadHandler extends ThreadEnvironmentHandler
 			$injections = [];
 		} else {
 			$injections = array_map(static function (InjectingData $injection) {
-				return $injection->toProtocol();
+				return $injection->toPacket();
 			}, $controller->getInjections());
 		}
 		LoaderManager::setChunks($controller->getManager()->getWorld(), $controller->getManager()->getModifiedChunks(), $injections);
@@ -52,7 +53,7 @@ class MainThreadHandler extends ThreadEnvironmentHandler
 	 * @param string           $world
 	 * @param int              $index
 	 * @param ChunkInformation $chunk
-	 * @param string[]         $injections
+	 * @param UpdateSubChunkBlocksPacket[] $injections
 	 */
 	public function submitSingleChunk(string $world, int $index, ChunkInformation $chunk, array $injections): void
 	{
@@ -113,17 +114,17 @@ class MainThreadHandler extends ThreadEnvironmentHandler
 	}
 
 	/**
-	 * Packet injection builds UpdateSubChunkBlocks payloads by hand, which requires the vanilla
-	 * PacketSerializer. Server forks (multi protocol ones especially) may not ship it, in which case
-	 * every main thread edit would crash instead of falling back to normal chunk resending.
+	 * Injection sends one UpdateSubChunkBlocks packet per touched subchunk instead of resending whole
+	 * chunks, which is what makes edits show up instantly. The packet is optional though, so keep
+	 * working (with the slower chunk resend) on servers whose protocol library does not provide it.
 	 * @return bool
 	 */
 	public static function supportsInjection(): bool
 	{
 		if (self::$supportsInjection === null) {
-			self::$supportsInjection = class_exists(PacketSerializer::class);
+			self::$supportsInjection = class_exists(UpdateSubChunkBlocksPacket::class) && class_exists(UpdateSubChunkBlocksPacketEntry::class);
 			if (!self::$supportsInjection) {
-				Server::getInstance()->getLogger()->notice("[EasyEdit] PacketSerializer is unavailable, falling back to normal chunk resending. Edits stay correct, but may flicker slightly.");
+				Server::getInstance()->getLogger()->notice("[EasyEdit] UpdateSubChunkBlocksPacket is unavailable, falling back to normal chunk resending. Edits stay correct, but may take a moment to show up.");
 			}
 		}
 		return self::$supportsInjection;
