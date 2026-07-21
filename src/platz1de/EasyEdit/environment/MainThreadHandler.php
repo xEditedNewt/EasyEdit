@@ -16,6 +16,7 @@ use platz1de\EasyEdit\world\ChunkInformation;
 use platz1de\EasyEdit\world\HeightMapCache;
 use platz1de\EasyEdit\world\ReferencedChunkManager;
 use pocketmine\block\tile\Tile;
+use pocketmine\network\mcpe\protocol\serializer\PacketSerializer;
 use pocketmine\Server;
 use pocketmine\utils\AssumptionFailedError;
 use pocketmine\world\format\Chunk;
@@ -33,6 +34,7 @@ class MainThreadHandler extends ThreadEnvironmentHandler
 	 */
 	private array $chunkRequestQueue = [];
 	private bool $isChunkPaused = false;
+	private static ?bool $supportsInjection = null;
 
 	public function submitResultingChunks(ChunkController $controller): void
 	{
@@ -103,7 +105,28 @@ class MainThreadHandler extends ThreadEnvironmentHandler
 
 	public function getChunkController(ReferencedChunkManager $manager): ChunkController
 	{
+		if (!self::supportsInjection()) {
+			//Plain controller, chunks get resent normally instead of injecting pre-built packets
+			return new ChunkController($manager);
+		}
 		return new InjectingSubChunkController($manager);
+	}
+
+	/**
+	 * Packet injection builds UpdateSubChunkBlocks payloads by hand, which requires the vanilla
+	 * PacketSerializer. Server forks (multi protocol ones especially) may not ship it, in which case
+	 * every main thread edit would crash instead of falling back to normal chunk resending.
+	 * @return bool
+	 */
+	public static function supportsInjection(): bool
+	{
+		if (self::$supportsInjection === null) {
+			self::$supportsInjection = class_exists(PacketSerializer::class);
+			if (!self::$supportsInjection) {
+				Server::getInstance()->getLogger()->notice("[EasyEdit] PacketSerializer is unavailable, falling back to normal chunk resending. Edits stay correct, but may flicker slightly.");
+			}
+		}
+		return self::$supportsInjection;
 	}
 
 	/**
