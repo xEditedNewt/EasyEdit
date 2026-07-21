@@ -17,6 +17,10 @@ class TaskResultPromise
 	 */
 	private array $finish = [];
 	/**
+	 * @var array<int, Closure(T): void>
+	 */
+	private array $success = [];
+	/**
 	 * @var array<int, Closure(SessionIdentifier): void>
 	 */
 	private array $cancel = [];
@@ -51,6 +55,23 @@ class TaskResultPromise
 		if ($this->status === self::STATUS_WAITING) {
 			$this->finish[] = $callback;
 		} else {
+			$callback($this->result);
+		}
+		return $this;
+	}
+
+	/**
+	 * Called only when the task actually completed successfully
+	 * Unlike then(), this is skipped on crashes and cancellations, where the result only holds
+	 * whatever was recovered before the task died (usually nothing at all)
+	 * @param Closure(T) : void $callback
+	 * @return TaskResultPromise<T>
+	 */
+	public function onSuccess(Closure $callback): self
+	{
+		if ($this->status === self::STATUS_WAITING) {
+			$this->success[] = $callback;
+		} elseif ($this->status === self::STATUS_SUCCESS) {
 			$callback($this->result);
 		}
 		return $this;
@@ -108,6 +129,12 @@ class TaskResultPromise
 			$this->status = self::STATUS_SUCCESS;
 		}
 		$this->result = $result;
+		if ($this->status === self::STATUS_SUCCESS) {
+			foreach ($this->success as $callback) {
+				$callback($result);
+			}
+		}
+		$this->success = [];
 		foreach ($this->finish as $callback) {
 			$callback($result);
 		}
@@ -197,6 +224,12 @@ class TaskResultPromise
 				$this->cancel = [];
 				break;
 		}
+		if ($this->status === self::STATUS_SUCCESS) {
+			foreach ($this->success as $callback) {
+				$callback($result);
+			}
+		}
+		$this->success = [];
 		foreach ($this->finish as $callback) {
 			$callback($result);
 		}

@@ -112,10 +112,12 @@ class Session
 	 */
 	public function runEditTask(string $message, ExecutableTask $task): void
 	{
-		$this->runTask($task)->then(function (EditTaskResult $result) use ($message) {
-			$this->sendMessage($message, ["{time}" => $result->getFormattedTime(), "{changed}" => MixedUtils::humanReadable($result->getAffected())]);
-			$this->addToHistory($result->getSelection());
-		});
+		$this->runTask($task)
+			->onSuccess(function (EditTaskResult $result) use ($message) {
+				$this->sendMessage($message, ["{time}" => $result->getFormattedTime(), "{changed}" => MixedUtils::humanReadable($result->getAffected())]);
+			})
+			//History is still saved on crashes and cancellations, partial edits have to stay undoable
+			->then(fn(EditTaskResult $result) => $this->addToHistory($result->getSelection()));
 	}
 
 	/**

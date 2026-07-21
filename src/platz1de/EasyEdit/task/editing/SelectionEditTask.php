@@ -12,6 +12,7 @@ use platz1de\EasyEdit\selection\SelectionContext;
 use platz1de\EasyEdit\task\ExecutableTask;
 use platz1de\EasyEdit\thread\EditThread;
 use platz1de\EasyEdit\utils\ExtendedBinaryStream;
+use pmmp\thread\Thread;
 
 /**
  * @extends ExecutableTask<EditTaskResult>
@@ -41,7 +42,20 @@ abstract class SelectionEditTask extends ExecutableTask implements ChunkedTask
 		EasyEdit::getEnv()->initChunkHandler($handler);
 		$this->undo = $this->createUndoBlockList();
 		$this->handler = new EditTaskHandler($this->getTargetWorld(), $this->undo);
-		EasyEdit::getEnv()->executeChunkedTask($this, $handler, $this->handler, $this->sortChunks($this->getSelection()->getNeededChunks()));
+		$chunks = $this->sortChunks($this->getSelection()->getNeededChunks());
+		EasyEdit::getEnv()->executeChunkedTask($this, $handler, $this->handler, $chunks);
+
+		if ($this->handler->getChangedBlockCount() === 0) {
+			//Not debug: this always means something went wrong, and the player is told the task "succeeded" with 0 blocks
+			$selection = $this->getSelection();
+			$pos1 = $selection->getPos1();
+			$pos2 = $selection->getPos2();
+			EditThread::getInstance()->getLogger()->warning("Task " . $this->getTaskName() . ":" . $this->getTaskId() . " changed 0 blocks. " .
+				"World '" . $selection->getWorldName() . "', " .
+				"(" . $pos1->x . ", " . $pos1->y . ", " . $pos1->z . ") to (" . $pos2->x . ", " . $pos2->y . ", " . $pos2->z . "), " .
+				count($chunks) . " chunks needed, " . $this->handler->getReadBlockCount() . " blocks read, " .
+				"ran on " . (Thread::getCurrentThread() instanceof EditThread ? "edit thread" : "main thread"));
+		}
 
 		EditThread::getInstance()->debug("Task " . $this->getTaskName() . ":" . $this->getTaskId() . " was executed successful, changing " . $this->handler->getChangedBlockCount() . " blocks (" . $this->handler->getReadBlockCount() . " read, " . $this->handler->getWrittenBlockCount() . " written)");
 		return $this->toTaskResult();

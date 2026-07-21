@@ -37,16 +37,18 @@ class CopyCommand extends EasyEditCommand
 			if (!$this->testPermission($session->asPlayer(), KnownPermissions::PERMISSION_EDIT)) {
 				return;
 			}
-			$session->runTask(new CutTask($session->getSelection(), $flags->getVectorFlag("relative")))->then(function (EditTaskResult $result) use ($session) {
-				if (!$result instanceof CuttingTaskResult) {
-					throw new RuntimeException("Expected CuttingTaskResult");
-				}
-				$session->sendMessage("blocks-cut", ["{time}" => $result->getFormattedTime(), "{changed}" => MixedUtils::humanReadable($result->getAffected())]);
-				$session->addToHistory($result->getSelection());
-				$session->setClipboard($result->getClipboard());
-			});
+			$session->runTask(new CutTask($session->getSelection(), $flags->getVectorFlag("relative")))
+				->onSuccess(function (EditTaskResult $result) use ($session) {
+					if (!$result instanceof CuttingTaskResult) {
+						throw new RuntimeException("Expected CuttingTaskResult");
+					}
+					$session->sendMessage("blocks-cut", ["{time}" => $result->getFormattedTime(), "{changed}" => MixedUtils::humanReadable($result->getAffected())]);
+					$session->setClipboard($result->getClipboard());
+				})
+				//History is still saved on crashes and cancellations, partial edits have to stay undoable
+				->then(fn(EditTaskResult $result) => $session->addToHistory($result->getSelection()));
 		} else {
-			$session->runTask(new CopyTask($session->getSelection(), $flags->getVectorFlag("relative")))->then(function (EditTaskResult $result) use ($session) {
+			$session->runTask(new CopyTask($session->getSelection(), $flags->getVectorFlag("relative")))->onSuccess(function (EditTaskResult $result) use ($session) {
 				$session->sendMessage("blocks-copied", ["{time}" => $result->getFormattedTime(), "{changed}" => MixedUtils::humanReadable($result->getAffected())]);
 				$session->setClipboard($result->getSelection());
 			});

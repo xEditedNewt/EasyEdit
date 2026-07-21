@@ -50,7 +50,10 @@ abstract class GroupedChunkHandler implements ChunkHandler
 				$skipped++;
 			}
 		}
-		if ($skipped > 0) {
+		if ($skipped > 0 && $skipped === count($chunks)) {
+			//Nothing is left to edit, the task will report a successful edit of 0 blocks
+			EditThread::getInstance()->getLogger()->warning("Skipped all " . $skipped . " chunks of world '" . $this->world . "', no constructor claimed any of them");
+		} elseif ($skipped > 0) {
 			EditThread::getInstance()->debug("Skipped " . $skipped . " chunks");
 		}
 		return count($chunks) - $skipped;
